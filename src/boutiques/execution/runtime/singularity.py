@@ -57,9 +57,9 @@ def _resolve_image_arg(
         return _ensure_image(binary, path, image_uri, no_pull)
     if no_pull:
         raise RuntimeError_(
-            f"--no-pull cannot run the remote image {image_uri!r}: the runtime would pull "
-            "it into its own cache on first use. Use --imagepath to point at a "
-            "pre-pulled local image file."
+            "--no-pull is specified without --imagepath."
+            " Either supply a locally available image with --imagepath <file>, "
+            "or omit --no-pull."
         )
     return image_uri
 

@@ -22,8 +22,18 @@ def _echo_descriptor():
             "tool-version": "1.0",
             "command-line": "[PYTHON] -c [SCRIPT] [MSG]",
             "inputs": [
-                {"id": "python", "name": "P", "type": "String", "value-key": "[PYTHON]"},
-                {"id": "script", "name": "S", "type": "String", "value-key": "[SCRIPT]"},
+                {
+                    "id": "python",
+                    "name": "P",
+                    "type": "String",
+                    "value-key": "[PYTHON]",
+                },
+                {
+                    "id": "script",
+                    "name": "S",
+                    "type": "String",
+                    "value-key": "[SCRIPT]",
+                },
                 {"id": "msg", "name": "M", "type": "String", "value-key": "[MSG]"},
             ],
         }
@@ -236,7 +246,9 @@ def test_cli_launch_imagepath_uses_local_image(tmp_path):
                 "description": "x",
                 "tool-version": "1.0",
                 "command-line": "tool [X]",
-                "inputs": [{"id": "x", "name": "X", "type": "String", "value-key": "[X]"}],
+                "inputs": [
+                    {"id": "x", "name": "X", "type": "String", "value-key": "[X]"}
+                ],
                 "container-image": {"type": "docker", "image": "example/tool"},
             }
         )
@@ -352,7 +364,9 @@ def test_singularity_no_pull_allows_existing_imagepath(tmp_path):
 
 
 def test_singularity_no_pull_refuses_remote_uri(tmp_path):
-    with pytest.raises(RuntimeError_, match="remote image"):
+    with pytest.raises(
+        RuntimeError_, match="--no-pull is specified without --imagepath"
+    ):
         launch(
             _docker_descriptor(),
             {"x": "hi"},
@@ -366,7 +380,9 @@ def test_imagepath_rejected_for_non_singularity_runtime(tmp_path):
     img = tmp_path / "local.sif"
     img.write_bytes(b"")
     for runtime in ("docker", "local"):
-        with pytest.raises(RuntimeError_, match="only applies to the singularity runtime"):
+        with pytest.raises(
+            RuntimeError_, match="only applies to the singularity runtime"
+        ):
             launch(
                 _docker_descriptor(),
                 {"x": "hi"},
@@ -392,7 +408,9 @@ def test_cli_launch_imagepath_with_docker_errors(tmp_path):
                 "description": "x",
                 "tool-version": "1.0",
                 "command-line": "tool [X]",
-                "inputs": [{"id": "x", "name": "X", "type": "String", "value-key": "[X]"}],
+                "inputs": [
+                    {"id": "x", "name": "X", "type": "String", "value-key": "[X]"}
+                ],
                 "container-image": {"type": "docker", "image": "example/tool"},
             }
         )
@@ -454,7 +472,9 @@ def test_cli_force_docker_aliases_runtime(tmp_path):
                 "description": "x",
                 "tool-version": "1.0",
                 "command-line": "tool [X]",
-                "inputs": [{"id": "x", "name": "X", "type": "String", "value-key": "[X]"}],
+                "inputs": [
+                    {"id": "x", "name": "X", "type": "String", "value-key": "[X]"}
+                ],
                 "container-image": {"type": "docker", "image": "example/tool"},
             }
         )
@@ -468,7 +488,9 @@ def test_cli_force_docker_aliases_runtime(tmp_path):
         captured["argv"] = argv
         return RunResult(exit_code=0, stdout="", stderr="", duration_seconds=0.0)
 
-    with patch("boutiques.execution.runtime.docker.run_subprocess", side_effect=fake_run):
+    with patch(
+        "boutiques.execution.runtime.docker.run_subprocess", side_effect=fake_run
+    ):
         result = CliRunner().invoke(
             app,
             [
@@ -507,7 +529,9 @@ def test_cli_force_multiple_runtimes_errors(tmp_path):
                 "description": "x",
                 "tool-version": "1.0",
                 "command-line": "tool [X]",
-                "inputs": [{"id": "x", "name": "X", "type": "String", "value-key": "[X]"}],
+                "inputs": [
+                    {"id": "x", "name": "X", "type": "String", "value-key": "[X]"}
+                ],
                 "container-image": {"type": "docker", "image": "example/tool"},
             }
         )
@@ -548,7 +572,9 @@ def test_cli_simulate_accepts_i_flag(tmp_path):
                 "description": "x",
                 "tool-version": "1.0",
                 "command-line": "tool [X]",
-                "inputs": [{"id": "x", "name": "X", "type": "String", "value-key": "[X]"}],
+                "inputs": [
+                    {"id": "x", "name": "X", "type": "String", "value-key": "[X]"}
+                ],
             }
         )
     )
@@ -579,7 +605,9 @@ def test_cli_simulate_rejects_positional_invocation(tmp_path):
                 "description": "x",
                 "tool-version": "1.0",
                 "command-line": "tool [X]",
-                "inputs": [{"id": "x", "name": "X", "type": "String", "value-key": "[X]"}],
+                "inputs": [
+                    {"id": "x", "name": "X", "type": "String", "value-key": "[X]"}
+                ],
             }
         )
     )
@@ -610,7 +638,9 @@ def test_cli_simulate_accepts_invocation_as_json_string(tmp_path):
                 "description": "x",
                 "tool-version": "1.0",
                 "command-line": "tool [X]",
-                "inputs": [{"id": "x", "name": "X", "type": "String", "value-key": "[X]"}],
+                "inputs": [
+                    {"id": "x", "name": "X", "type": "String", "value-key": "[X]"}
+                ],
             }
         )
     )
@@ -655,7 +685,9 @@ def test_cli_simulate_includes_descriptor_defaults(tmp_path):
         )
     )
 
-    result = CliRunner().invoke(app, ["exec", "simulate", str(descriptor_path), "-i", '{"x": "v"}'])
+    result = CliRunner().invoke(
+        app, ["exec", "simulate", str(descriptor_path), "-i", '{"x": "v"}']
+    )
     assert result.exit_code == 0
     assert "--species human" in result.stdout
 
@@ -681,10 +713,21 @@ def test_default_value_satisfies_validation_like_classic():
                     "default-value": "on",
                     "value-key": "[A]",
                 },
-                {"id": "b", "name": "B", "type": "String", "optional": True, "value-key": "[B]"},
+                {
+                    "id": "b",
+                    "name": "B",
+                    "type": "String",
+                    "optional": True,
+                    "value-key": "[B]",
+                },
             ],
             "groups": [
-                {"id": "g", "name": "G", "members": ["a", "b"], "one-is-required": True},
+                {
+                    "id": "g",
+                    "name": "G",
+                    "members": ["a", "b"],
+                    "one-is-required": True,
+                },
             ],
         }
     )
@@ -709,7 +752,9 @@ def test_cli_launch_unimplemented_flag_refuses(tmp_path):
                 "description": "x",
                 "tool-version": "1.0",
                 "command-line": "tool [X]",
-                "inputs": [{"id": "x", "name": "X", "type": "String", "value-key": "[X]"}],
+                "inputs": [
+                    {"id": "x", "name": "X", "type": "String", "value-key": "[X]"}
+                ],
             }
         )
     )
@@ -746,7 +791,9 @@ def test_output_paths_resolve_against_cwd(tmp_path):
             "inputs": [
                 {"id": "name", "name": "N", "type": "String", "value-key": "[NAME]"},
             ],
-            "output-files": [{"id": "out", "name": "Out", "path-template": "[NAME].txt"}],
+            "output-files": [
+                {"id": "out", "name": "Out", "path-template": "[NAME].txt"}
+            ],
         }
     )
     (tmp_path / "result.txt").write_text("data")
@@ -769,10 +816,22 @@ def test_environment_variables_are_passed(tmp_path):
             "tool-version": "1.0",
             "command-line": "[PYTHON] -c [SCRIPT]",
             "inputs": [
-                {"id": "python", "name": "P", "type": "String", "value-key": "[PYTHON]"},
-                {"id": "script", "name": "S", "type": "String", "value-key": "[SCRIPT]"},
+                {
+                    "id": "python",
+                    "name": "P",
+                    "type": "String",
+                    "value-key": "[PYTHON]",
+                },
+                {
+                    "id": "script",
+                    "name": "S",
+                    "type": "String",
+                    "value-key": "[SCRIPT]",
+                },
             ],
-            "environment-variables": [{"name": "BOUTIQUES_TEST_VAR", "value": "from_descriptor"}],
+            "environment-variables": [
+                {"name": "BOUTIQUES_TEST_VAR", "value": "from_descriptor"}
+            ],
         }
     )
     result = launch(
