@@ -183,7 +183,7 @@ def launch(
     no_automounts: bool = typer.Option(
         False,
         "--no-automounts",
-        help="Classic compat: disable auto-mounting input files (not implemented yet).",
+        help="Disable automatic mount of all input files present in the invocation.",
     ),
 ) -> None:
     """Launch a descriptor with an invocation under the chosen runtime."""
@@ -193,8 +193,6 @@ def launch(
         not_implemented("--provenance")
     if sandbox:
         not_implemented("--sandbox")
-    if no_automounts:
-        not_implemented("--no-automounts")
 
     parsed = load_descriptor_or_exit(descriptor)
 
@@ -224,6 +222,7 @@ def launch(
             capture=False,  # output already streamed; don't buffer twice
             image_path=Path(imagepath).resolve() if imagepath else None,
             no_pull=no_pull,
+            no_automounts=no_automounts,
         )
     except InvocationValidationError as exc:
         typer.echo(f"Invocation invalid:\n{exc}", err=True)

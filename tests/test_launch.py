@@ -92,6 +92,22 @@ def _docker_descriptor():
     )
 
 
+def _file_descriptor():
+    return load_descriptor(
+        {
+            "schema-version": "0.5",
+            "name": "file_input",
+            "description": "Takes a file input",
+            "tool-version": "1.0",
+            "command-line": "tool [IN]",
+            "inputs": [
+                {"id": "f", "name": "F", "type": "File", "value-key": "[IN]"},
+            ],
+            "container-image": {"type": "docker", "image": "example/tool"},
+        }
+    )
+
+
 def _fake_run_subprocess(captured: dict):
     """A run_subprocess stand-in that records its argv and returns success."""
 
@@ -453,6 +469,112 @@ def test_docker_no_pull_adds_pull_never(tmp_path):
         )
 
     assert "--pull=never" in captured["argv"]
+
+
+def test_docker_no_automounts_skips_file_mounts(tmp_path):
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    file_path = data_dir / "input.nii"
+    file_path.write_bytes(b"")
+
+    captured: dict = {}
+    with patch(
+        "boutiques.execution.runtime.docker.run_subprocess",
+        side_effect=_fake_run_subprocess(captured),
+    ):
+        launch(
+            _file_descriptor(),
+            {"f": str(file_path)},
+            runtime="docker",
+            cwd=tmp_path,
+            no_automounts=True,
+        )
+
+    argv = captured["argv"]
+    mount_pairs = [argv[i + 1] for i, t in enumerate(argv) if t == "-v"]
+    assert mount_pairs == [f"{tmp_path}:{tmp_path}"]
+    assert str(data_dir) not in " ".join(mount_pairs)
+
+
+def test_singularity_no_automounts_skips_file_mounts(tmp_path):
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    file_path = data_dir / "input.nii"
+    file_path.write_bytes(b"")
+
+    captured: dict = {}
+    with (
+        patch(
+            "boutiques.execution.runtime.singularity.run_subprocess",
+            side_effect=_fake_run_subprocess(captured),
+        ),
+        patch(
+            "boutiques.execution.runtime.singularity.shutil.which",
+            return_value=None,
+        ),
+    ):
+        launch(
+            _file_descriptor(),
+            {"f": str(file_path)},
+            runtime="singularity",
+            cwd=tmp_path,
+            no_automounts=True,
+        )
+
+    argv = captured["argv"]
+    binds = [argv[i + 1] for i, t in enumerate(argv) if t == "--bind"]
+    assert binds == [str(tmp_path.resolve())]
+
+
+def test_cli_launch_no_automounts_flag(tmp_path):
+    import json
+
+    from typer.testing import CliRunner
+
+    from boutiques.cli import app
+
+    descriptor_path = tmp_path / "descriptor.json"
+    descriptor_path.write_text(
+        json.dumps(
+            {
+                "schema-version": "0.5",
+                "name": "t",
+                "description": "x",
+                "tool-version": "1.0",
+                "command-line": "tool [IN]",
+                "inputs": [{"id": "f", "name": "F", "type": "File", "value-key": "[IN]"}],
+                "container-image": {"type": "docker", "image": "example/tool"},
+            }
+        )
+    )
+    inv_path = tmp_path / "inv.json"
+    inv_path.write_text('{"f": "/data/input.nii"}')
+
+    captured: dict = {}
+    with patch(
+        "boutiques.execution.runtime.docker.run_subprocess",
+        side_effect=_fake_run_subprocess(captured),
+    ):
+        result = CliRunner().invoke(
+            app,
+            [
+                "exec",
+                "launch",
+                str(descriptor_path),
+                str(inv_path),
+                "-r",
+                "docker",
+                "--cwd",
+                str(tmp_path),
+                "--no-automounts",
+            ],
+        )
+
+    assert result.exit_code == 0
+    argv = captured["argv"]
+    mount_pairs = [argv[i + 1] for i, t in enumerate(argv) if t == "-v"]
+    assert mount_pairs == [f"{tmp_path}:{tmp_path}"]
+    assert not any("/data" in m for m in mount_pairs)
 
 
 def test_cli_force_docker_aliases_runtime(tmp_path):
