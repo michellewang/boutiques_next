@@ -19,6 +19,8 @@ def run(
     runtime_args: list[str] | None = None,
     stream: bool = True,
     capture: bool = True,
+    image_path: Path | None = None,  # rejected in launch(); accepted for a uniform call
+    no_pull: bool = False,
 ) -> RunResult:
     if container_image is None:
         raise RuntimeError_("docker runtime requires the descriptor to declare a container-image.")
@@ -26,6 +28,8 @@ def run(
     cwd_abs = cwd.resolve()
 
     wrapper: list[str] = ["docker", "run", "--rm"]
+    if no_pull:
+        wrapper.append("--pull=never")
     for mount in mounts or [cwd_abs]:
         wrapper.extend(["-v", f"{mount}:{mount}"])
     wrapper.extend(["-w", str(cwd_abs)])

@@ -55,8 +55,8 @@ bosh exec launch <descriptor> <invocation>
 ### Behaviour
 
 - **`local`** — runs the resolved argv as a subprocess.
-- **`docker`** — wraps in `docker run --rm -v <cwd>:<cwd> -w <cwd> <image> <argv>`. Auto-mounts the parent directory of every File-typed input in the invocation (deduped). Environment variables declared in the descriptor's `environment-variables` are passed via `-e`. The descriptor's `container-image.container-opts` are appended after our flags.
-- **`singularity`** — wraps in `singularity exec --bind <cwd> --pwd <cwd> <image>`. Docker images pull via the `docker://` URI scheme. Prefers `apptainer` if available.
+- **`docker`** — wraps in `docker run --rm -v <cwd>:<cwd> -w <cwd> <image> <argv>`. Auto-mounts the parent directory of every File-typed input in the invocation (deduped). Environment variables declared in the descriptor's `environment-variables` are passed via `-e`. The descriptor's `container-image.container-opts` are appended after our flags. `--no-pull` adds `--pull=never` so a locally-absent image is an error instead of an implicit pull.
+- **`singularity`** — wraps in `singularity exec --bind <cwd> --pwd <cwd> <image>`. Docker images pull via the `docker://` URI scheme. Prefers `apptainer` if available. `--imagepath <file>` runs the local image file instead of a remote URI (singularity only); if the file does not exist it is pulled into place first (`<binary> pull <file> <uri>`). `--no-pull` refuses to run a remote URI — use `--imagepath` pointing at a pre-pulled file.
 
 Output streams to your terminal live; the final line is a `[bosh]`
 summary plus the declared outputs and whether they appeared on disk:

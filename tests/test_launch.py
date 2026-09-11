@@ -192,6 +192,251 @@ def test_singularity_runtime_uses_docker_uri(tmp_path):
     assert "docker://example/tool" in argv
 
 
+def test_singularity_uses_existing_local_imagepath(tmp_path):
+    img = tmp_path / "local.sif"
+    img.write_bytes(b"")
+    captured: dict = {}
+    with (
+        patch(
+            "boutiques.execution.runtime.singularity.run_subprocess",
+            side_effect=_fake_run_subprocess(captured),
+        ),
+        patch(
+            "boutiques.execution.runtime.singularity.shutil.which",
+            return_value=None,
+        ),
+    ):
+        launch(
+            _docker_descriptor(),
+            {"x": "hi"},
+            runtime="singularity",
+            cwd=tmp_path,
+            image_path=img,
+        )
+
+    argv = captured["argv"]
+    assert argv[0] == "singularity"
+    assert str(img) in argv
+    assert not any("docker://" in token for token in argv)
+
+
+def test_cli_launch_imagepath_uses_local_image(tmp_path):
+    import json
+
+    from typer.testing import CliRunner
+
+    from boutiques.cli import app
+
+    descriptor_path = tmp_path / "descriptor.json"
+    descriptor_path.write_text(
+        json.dumps(
+            {
+                "schema-version": "0.5",
+                "name": "t",
+                "description": "x",
+                "tool-version": "1.0",
+                "command-line": "tool [X]",
+                "inputs": [{"id": "x", "name": "X", "type": "String", "value-key": "[X]"}],
+                "container-image": {"type": "docker", "image": "example/tool"},
+            }
+        )
+    )
+    inv_path = tmp_path / "inv.json"
+    inv_path.write_text('{"x": "v"}')
+    img = tmp_path / "local.sif"
+    img.write_bytes(b"")
+
+    captured: dict = {}
+    with (
+        patch(
+            "boutiques.execution.runtime.singularity.run_subprocess",
+            side_effect=_fake_run_subprocess(captured),
+        ),
+        patch(
+            "boutiques.execution.runtime.singularity.shutil.which",
+            return_value=None,
+        ),
+    ):
+        result = CliRunner().invoke(
+            app,
+            [
+                "exec",
+                "launch",
+                str(descriptor_path),
+                str(inv_path),
+                "-r",
+                "singularity",
+                "--imagepath",
+                str(img),
+            ],
+        )
+
+    assert result.exit_code == 0
+    argv = captured["argv"]
+    assert str(img) in argv
+    assert not any("docker://" in token for token in argv)
+
+
+def test_singularity_auto_pulls_missing_imagepath(tmp_path):
+    img = tmp_path / "pulled.sif"
+    pull_argv: list[list[str]] = []
+    exec_captured: dict = {}
+
+    def fake_run(argv, **kwargs):
+        if argv[1] == "pull":
+            pull_argv.append(argv)
+            img.write_bytes(b"")
+            return RunResult(exit_code=0, stdout="", stderr="", duration_seconds=0.0)
+        exec_captured["argv"] = argv
+        return RunResult(exit_code=0, stdout="", stderr="", duration_seconds=0.0)
+
+    with (
+        patch(
+            "boutiques.execution.runtime.singularity.run_subprocess",
+            side_effect=fake_run,
+        ),
+        patch(
+            "boutiques.execution.runtime.singularity.shutil.which",
+            return_value=None,
+        ),
+    ):
+        launch(
+            _docker_descriptor(),
+            {"x": "hi"},
+            runtime="singularity",
+            cwd=tmp_path,
+            image_path=img,
+        )
+
+    assert pull_argv == [["singularity", "pull", str(img), "docker://example/tool"]]
+    assert str(img) in exec_captured["argv"]
+
+
+def test_singularity_no_pull_missing_imagepath_errors(tmp_path):
+    img = tmp_path / "missing.sif"
+    with pytest.raises(RuntimeError_, match="--no-pull"):
+        launch(
+            _docker_descriptor(),
+            {"x": "hi"},
+            runtime="singularity",
+            cwd=tmp_path,
+            image_path=img,
+            no_pull=True,
+        )
+
+
+def test_singularity_no_pull_allows_existing_imagepath(tmp_path):
+    img = tmp_path / "local.sif"
+    img.write_bytes(b"")
+    captured: dict = {}
+    with (
+        patch(
+            "boutiques.execution.runtime.singularity.run_subprocess",
+            side_effect=_fake_run_subprocess(captured),
+        ),
+        patch(
+            "boutiques.execution.runtime.singularity.shutil.which",
+            return_value=None,
+        ),
+    ):
+        launch(
+            _docker_descriptor(),
+            {"x": "hi"},
+            runtime="singularity",
+            cwd=tmp_path,
+            image_path=img,
+            no_pull=True,
+        )
+
+    assert str(img) in captured["argv"]
+
+
+def test_singularity_no_pull_refuses_remote_uri(tmp_path):
+    with pytest.raises(RuntimeError_, match="remote image"):
+        launch(
+            _docker_descriptor(),
+            {"x": "hi"},
+            runtime="singularity",
+            cwd=tmp_path,
+            no_pull=True,
+        )
+
+
+def test_imagepath_rejected_for_non_singularity_runtime(tmp_path):
+    img = tmp_path / "local.sif"
+    img.write_bytes(b"")
+    for runtime in ("docker", "local"):
+        with pytest.raises(RuntimeError_, match="only applies to the singularity runtime"):
+            launch(
+                _docker_descriptor(),
+                {"x": "hi"},
+                runtime=runtime,
+                cwd=tmp_path,
+                image_path=img,
+            )
+
+
+def test_cli_launch_imagepath_with_docker_errors(tmp_path):
+    import json
+
+    from typer.testing import CliRunner
+
+    from boutiques.cli import app
+
+    descriptor_path = tmp_path / "descriptor.json"
+    descriptor_path.write_text(
+        json.dumps(
+            {
+                "schema-version": "0.5",
+                "name": "t",
+                "description": "x",
+                "tool-version": "1.0",
+                "command-line": "tool [X]",
+                "inputs": [{"id": "x", "name": "X", "type": "String", "value-key": "[X]"}],
+                "container-image": {"type": "docker", "image": "example/tool"},
+            }
+        )
+    )
+    inv_path = tmp_path / "inv.json"
+    inv_path.write_text('{"x": "v"}')
+    img = tmp_path / "local.sif"
+    img.write_bytes(b"")
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "exec",
+            "launch",
+            str(descriptor_path),
+            str(inv_path),
+            "-r",
+            "docker",
+            "--imagepath",
+            str(img),
+        ],
+    )
+    assert result.exit_code == 2
+    combined = (result.stdout or "") + (result.stderr or "")
+    assert "only applies to the singularity runtime" in combined
+
+
+def test_docker_no_pull_adds_pull_never(tmp_path):
+    captured: dict = {}
+    with patch(
+        "boutiques.execution.runtime.docker.run_subprocess",
+        side_effect=_fake_run_subprocess(captured),
+    ):
+        launch(
+            _docker_descriptor(),
+            {"x": "hi"},
+            runtime="docker",
+            cwd=tmp_path,
+            no_pull=True,
+        )
+
+    assert "--pull=never" in captured["argv"]
+
+
 def test_cli_force_docker_aliases_runtime(tmp_path):
     """`--force-docker` (classic-bosh compat) selects the docker runtime, -v appends mounts."""
     import json
@@ -471,7 +716,7 @@ def test_cli_launch_unimplemented_flag_refuses(tmp_path):
 
     result = CliRunner().invoke(
         app,
-        ["exec", "launch", str(descriptor_path), '{"x": "v"}', "--no-pull"],
+        ["exec", "launch", str(descriptor_path), '{"x": "v"}', "--user"],
     )
     assert result.exit_code == 2
     combined = (result.stdout or "") + (result.stderr or "")

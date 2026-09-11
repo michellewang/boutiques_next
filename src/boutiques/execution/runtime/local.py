@@ -18,6 +18,8 @@ def run(
     runtime_args: list[str] | None = None,  # ignored
     stream: bool = True,
     capture: bool = True,
+    image_path: Path | None = None,  # ignored
+    no_pull: bool = False,  # ignored
 ) -> RunResult:
     """Run ``argv`` locally; stream/capture per the flags."""
     return run_subprocess(argv, env=env, cwd=cwd, stream=stream, capture=capture)
